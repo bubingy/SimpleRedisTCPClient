@@ -57,8 +57,7 @@ class RedisTCPClient:
 
         return response
 
-    def parse_response(self, response: bytes) -> Any:
-        response = response.decode(self.coding)
+    def parse_response(self, response: str) -> Any:
         result = None
         if response[0] == '+':
             return response.strip('+\r\n')
@@ -77,21 +76,23 @@ class RedisTCPClient:
             return string
         elif response[0] == '*':
             result = list()
-            response_strings = response.strip('$').split('\r\n')
-            array_size = int(response_strings[0])
+            response_strings = response.split('\r\n')
+            array_size = int(response_strings[0].strip('*'))
             if array_size == '0': return result
             if array_size == '-1': return None
 
-            # TODO: end
+            for response_string in response_strings[1:]:
+                result.append(self.parse_response(response_string))
+            return result
         else:
             raise Exception('unknown data type.')
-        return result
 
     def run_command(self, command: str) -> Any:
         result = None
         try:
             self.conn.send(f'{command}\r\n'.encode('utf-8'))
             response = self.receive_response()
+            response = response.decode(self.coding)
             result = self.parse_response(response)
         except Exception as e:
             print(e)
