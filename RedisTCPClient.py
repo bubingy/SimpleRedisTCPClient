@@ -75,9 +75,7 @@ class RedisTCPClient:
         result = None
         try:
             self.conn.send(f'{command}\r\n'.encode('utf-8'))
-            response = self.receive_response()
-            response = response.decode(self.coding)
-            result = self.parse_response(response)
+            result = self.receive_response()
         except Exception as e:
             print(e)
         return result
