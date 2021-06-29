@@ -1,6 +1,6 @@
 from RedisTCPClient import RedisTCPClient
 
-client = RedisTCPClient('10.20.10.158', 6379)
+client = RedisTCPClient('localhost', 6379)
 
 commands = [
     'SELECT 1',
