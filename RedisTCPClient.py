@@ -16,76 +16,60 @@ class RedisTCPClient:
         self.conn = socket.socket()
         self.conn.connect((self.host, self.port))
 
-    def receive_response(self) -> bytes:
+    def receive_response(self) -> Any:
         type_flag = self.conn.recv(1)
-        response = b''
-        response += type_flag
-        if type_flag in [b'+', b'-', b':']:
-            while b'\r\n' != response[-2:]:
-                response += self.conn.recv(1)
+        if type_flag == b'+':
+            content = b''
+            while b'\r\n' != content[-2:]:
+                content += self.conn.recv(1)
+            return content.decode(self.coding).strip('+\r\n')
+
+        elif type_flag == b'-':
+            content = b''
+            while b'\r\n' != content[-2:]:
+                content += self.conn.recv(1)
+            return content.decode(self.coding).strip('-\r\n')
+
+        elif type_flag == b':':
+            content = b''
+            while b'\r\n' != content[-2:]:
+                content += self.conn.recv(1)
+            return int(content.decode(self.coding).strip(':\r\n'))
 
         elif type_flag == b'$':
             string_size = b''
             while b'\r\n' != string_size[-2:]:
                 string_size += self.conn.recv(1)
 
-            response += string_size
             string_size = int(string_size.decode(self.coding).strip('\r\n'))
-
-            while string_size > self.buffer_size:
-                buffer_size = min(string_size, self.buffer_size)
-                response += self.conn.recv(buffer_size)
-                string_size -= buffer_size
+            if string_size == -1: return None
 
             content = b''
+            while string_size > self.buffer_size:
+                buffer_size = min(string_size, self.buffer_size)
+                content += self.conn.recv(buffer_size)
+                string_size -= buffer_size
+
             while b'\r\n' != content[-2:]:
-                response += self.conn.recv(1)
-            response += content  
+                content += self.conn.recv(1)
+            return content.decode(self.coding).strip('\r\n')
 
         elif type_flag == b'*':
             array_size = b''
             while b'\r\n' != array_size[-2:]:
                 array_size += self.conn.recv(1)
-
-            response += array_size
             array_size = int(array_size.decode(self.coding).strip('\r\n'))
+            if array_size == -1: return None
 
-            if array_size > 0: response += self.receive_response()
+            array = list()
+            if array_size == 0: return array
+
+            for _ in range(array_size):
+                array.append(self.receive_response())
+            return array
 
         else:
-            response = None
-
-        return response
-
-    def parse_response(self, response: str) -> Any:
-        result = None
-        if response[0] == '+':
-            return response.strip('+\r\n')
-        elif response[0] == '-':
-            return response.strip('-\r\n')
-        elif response[0] == ':':
-            return int(response.strip(':\r\n'))
-        elif response[0] == '$':
-            response_strings = response.strip('$').split('\r\n')
-            string_size = response_strings[0]
-            if string_size == '0': return ''
-            if string_size == '-1': return None
-            string = response_strings[1]
-            if len(string) == int(string_size):
-                raise Exception('invalid response!')
-            return string
-        elif response[0] == '*':
-            result = list()
-            response_strings = response.split('\r\n')
-            array_size = int(response_strings[0].strip('*'))
-            if array_size == '0': return result
-            if array_size == '-1': return None
-
-            for response_string in response_strings[1:]:
-                result.append(self.parse_response(response_string))
-            return result
-        else:
-            raise Exception('unknown data type.')
+            return None
 
     def run_command(self, command: str) -> Any:
         result = None
