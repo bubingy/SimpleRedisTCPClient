@@ -17,25 +17,35 @@ class RedisTCPClient:
         self.conn.connect((self.host, self.port))
 
     def receive_response(self) -> Any:
+        '''Receive and parse response.
+        
+        For more details about REdis Serialization Protocol,
+        please visit https://redis.io/topics/protocol
+        '''
+        # first character indicates data type.
         type_flag = self.conn.recv(1)
+        # For Simple Strings the first byte of the reply is "+"
         if type_flag == b'+':
             content = b''
             while b'\r\n' != content[-2:]:
                 content += self.conn.recv(1)
             return content.decode(self.coding).strip('+\r\n')
 
+        # For Errors the first byte of the reply is "-"
         elif type_flag == b'-':
             content = b''
             while b'\r\n' != content[-2:]:
                 content += self.conn.recv(1)
             return content.decode(self.coding).strip('-\r\n')
 
+        # For Integers the first byte of the reply is ":"
         elif type_flag == b':':
             content = b''
             while b'\r\n' != content[-2:]:
                 content += self.conn.recv(1)
             return int(content.decode(self.coding).strip(':\r\n'))
 
+        # For Bulk Strings the first byte of the reply is "$"
         elif type_flag == b'$':
             string_size = b''
             while b'\r\n' != string_size[-2:]:
@@ -54,6 +64,7 @@ class RedisTCPClient:
                 content += self.conn.recv(1)
             return content.decode(self.coding).strip('\r\n')
 
+        # For Arrays the first byte of the reply is "*"
         elif type_flag == b'*':
             array_size = b''
             while b'\r\n' != array_size[-2:]:
@@ -64,6 +75,8 @@ class RedisTCPClient:
             array = list()
             if array_size == 0: return array
 
+            # To handle with arrays of arrays scenario,
+            # call `receive_response()` recursively.
             for _ in range(array_size):
                 array.append(self.receive_response())
             return array
@@ -72,6 +85,11 @@ class RedisTCPClient:
             return None
 
     def run_command(self, command: str) -> Any:
+        '''Execute redis command.
+
+        :param command: redis command
+        :return: result.
+        '''
         result = None
         try:
             self.conn.send(f'{command}\r\n'.encode('utf-8'))
