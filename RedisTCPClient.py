@@ -106,14 +106,10 @@ class RedisTCPClient:
         '''
         result = None
         try:
-            a = self.run_command(f'MULTI\r\n'.encode('utf-8'))
-            print(a)
+            self.run_command(f'MULTI\r\n')
             for command in commands:
-                a = self.run_command(f'{command}\r\n'.encode('utf-8'))
-                print(a)
-            a = self.run_command(f'EXEC\r\n'.encode('utf-8'))
-            print(a)
-            result = self.__receive_response()
+                self.run_command(f'{command}\r\n')
+            result = self.run_command(f'EXEC\r\n')
         except Exception as e:
             print(e)
         return result
