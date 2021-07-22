@@ -31,4 +31,3 @@ if __name__ == '__main__':
         command = input('> ')
         if command in ('exit', 'quit'): break
         print(client.run_command(command))
-        print('\n')

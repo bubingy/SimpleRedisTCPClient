@@ -78,7 +78,7 @@ class RedisTCPClient:
             # To handle with arrays of arrays scenario,
             # call `receive_response()` recursively.
             for _ in range(array_size):
-                array.append(self.receive_response())
+                array.append(self.__receive_response())
             return array
 
         else:
@@ -106,10 +106,14 @@ class RedisTCPClient:
         '''
         result = None
         try:
-            self.conn.send(f'MULTI\r\n'.encode('utf-8'))
+            a = self.run_command(f'MULTI\r\n'.encode('utf-8'))
+            print(a)
             for command in commands:
-                self.conn.send(f'{command}\r\n'.encode('utf-8'))
-            result = self.conn.send(f'EXEC\r\n'.encode('utf-8'))
+                a = self.run_command(f'{command}\r\n'.encode('utf-8'))
+                print(a)
+            a = self.run_command(f'EXEC\r\n'.encode('utf-8'))
+            print(a)
+            result = self.__receive_response()
         except Exception as e:
             print(e)
         return result
